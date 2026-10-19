@@ -25,6 +25,35 @@ OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
 HEADERS = {"User-Agent": "FretadosIntelligence/5.0 (gestao inteligente de transporte)"}
 
 
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL") or os.environ.get("DATABASE_URL")
+
+def conectar():
+    if SUPABASE_DB_URL:
+        return psycopg2.connect(SUPABASE_DB_URL, cursor_factory=RealDictCursor)
+    else:
+        conexao = sqlite3.connect(DB_PATH)
+        conexao.row_factory = sqlite3.Row
+        return conexao
+
+def query_db(sql, params=(), fetchone=False, fetchall=False, commit=False):
+    is_postgres = bool(SUPABASE_DB_URL)
+    if is_postgres:
+        sql = sql.replace("?", "%s")
+    with conectar() as db:
+        cursor = db.cursor() if is_postgres else db
+        cursor.execute(sql, params)
+        resultado = None
+        if fetchone:
+            resultado = cursor.fetchone()
+        elif fetchall:
+            resultado = cursor.fetchall()
+        if commit or is_postgres:
+            db.commit()
+        return resultado
+
 # =========================================================
 # BANCO DE DADOS & AUTENTICAÇÃO
 # =========================================================
@@ -124,6 +153,7 @@ def iniciar_banco():
             ])
 
 
+
 iniciar_banco()
 
 
@@ -132,9 +162,7 @@ iniciar_banco()
 # =========================================================
 
 def buscar_usuarios_por_perfil(perfil):
-    with conectar() as db:
-        return db.execute("SELECT * FROM usuarios WHERE perfil = ? ORDER BY rota, nome_exibicao", (perfil,)).fetchall()
-
+    return query_db("SELECT * FROM usuarios WHERE perfil = ? ORDER BY rota, nome_exibicao", (perfil,), fetchall=True)
 
 def limpar_texto(valor):
     if valor is None:
