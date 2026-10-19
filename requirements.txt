@@ -1,0 +1,7 @@
+Flask
+gunicorn
+pandas
+requests
+python-dotenv
+Werkzeug
+itsdangerous

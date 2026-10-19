@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Fretados Intelligence</title>
+    <style>
+        .msg-danger { color: red; }
+        .msg-success { color: green; }
+    </style>
+</head>
+<body>
+    <div style="max-width: 400px; margin: 50px auto; font-family: Arial, sans-serif;">
+        <h2>Login - Fretados Intelligence</h2>
+        
+        <!-- Mensagens flash limpas e sem conflitos no editor -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <ul>
+              {% for category, message in messages %}
+                <li class="msg-{{ category }}">{{ message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div style="margin-bottom: 15px;">
+                <label>Utilizador:</label><br>
+                <input type="text" name="usuario" required style="width: 100%; padding: 8px; margin-top: 5px;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label>Senha:</label><br>
+                <input type="password" name="senha" required style="width: 100%; padding: 8px; margin-top: 5px;">
+            </div>
+            
+            <button type="submit" style="padding: 10px 15px; background-color: #007BFF; color: white; border: none; cursor: pointer;">Entrar</button>
+        </form>
+    </div>
+</body>
+</html>
