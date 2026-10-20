@@ -23,15 +23,109 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "fretados-secret-key-segura-
 TOKEN_SERIALIZER = URLSafeTimedSerializer(app.secret_key, salt="recuperacao-senha-fretados")
 
 # Ligação oficial ao Supabase
-SUPABASE_DB_URL = "postgresql://postgres:262792%40Enny@db.evmbxserqabvyzbtmbty.supabase.co:5432/postgres"
+# Ligação oficial ao Supabase
+SUPABASE_DB_URL = os.environ.get("DATABASE_URL")
 
 def conectar():
-    return psycopg2.connect(SUPABASE_DB_URL, cursor_factory=RealDictCursor)
+    if not SUPABASE_DB_URL:
+        raise RuntimeError(
+            "A variável de ambiente DATABASE_URL não foi configurada no Render."
+        )
+
+    return psycopg2.connect(
+        SUPABASE_DB_URL,
+        cursor_factory=RealDictCursor,
+        connect_timeout=10
+    )
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
 HEADERS = {"User-Agent": "FretadosIntelligence/5.0 (gestao inteligente de transporte)"}
 
+def iniciar_banco():
+    conn = conectar()
+    try:
+        with conn.cursor() as cursor:
+            # 1. Tabela de Utilizadores
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id SERIAL PRIMARY KEY,
+                    usuario TEXT UNIQUE NOT NULL,
+                    senha TEXT NOT NULL,
+                    email TEXT DEFAULT '',
+                    perfil TEXT NOT NULL,
+                    nome_exibicao TEXT NOT NULL,
+                    endereco TEXT DEFAULT '',
+                    cep TEXT DEFAULT '',
+                    regiao TEXT DEFAULT 'Geral',
+                    turno TEXT DEFAULT 'AM',
+                    rota TEXT DEFAULT 'Rota 502',
+                    latitude REAL,
+                    longitude REAL
+                );
+            """)
+
+            # 2. Tabela de Veículos
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS veiculos (
+                    id SERIAL PRIMARY KEY,
+                    nome TEXT NOT NULL,
+                    motorista TEXT DEFAULT '',
+                    capacidade INTEGER NOT NULL,
+                    ativo INTEGER NOT NULL DEFAULT 1
+                );
+            """)
+
+            # 3. Tabela de Histórico de Rotas
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS historico_rotas (
+                    id SERIAL PRIMARY KEY,
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    turno TEXT,
+                    regiao TEXT,
+                    veiculo TEXT,
+                    endereco_inicial TEXT,
+                    funcionarios_json TEXT,
+                    distancia_km REAL,
+                    duracao_min REAL,
+                    observacao TEXT
+                );
+            """)
+
+            # Inserir admin inicial se não existir
+            cursor.execute("SELECT COUNT(*) AS total FROM usuarios WHERE perfil = 'rh'")
+            resultado_rh = cursor.fetchone()
+            if resultado_rh and resultado_rh['total'] == 0:
+                cursor.execute("""
+                    INSERT INTO usuarios (usuario, senha, email, perfil, nome_exibicao, regiao, rota)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, ("admin_rh", "123", "admin@fretados.com", "rh", "Gestor RH Principal", "Geral", "Rota 502"))
+
+            # Inserir veículos iniciais se não existirem
+            cursor.execute("SELECT COUNT(*) AS total FROM veiculos")
+            resultado_veiculos = cursor.fetchone()
+            if resultado_veiculos and resultado_veiculos['total'] == 0:
+                cursor.executemany("""
+                    INSERT INTO veiculos (nome, motorista, capacidade)
+                    VALUES (%s, %s, %s)
+                """, [
+                    ("Fretado Rota 502", "Carlos Motorista", 20),
+                    ("Fretado Pinhais", "João Motorista", 15),
+                    ("Fretado Colombo", "Marcos Motorista", 20),
+                ])
+
+        conn.commit()
+    except Exception as e:
+        print(f"Erro ao inicializar o banco: {e}")
+        if 'conn' in locals() and conn:
+            conn.rollback()
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+
+# Executar a inicialização do banco ao carregar a aplicação
+iniciar_banco()
 
 # =========================================================
 # BANCO DE DADOS & AUTENTICAÇÃO (SUPABASE)

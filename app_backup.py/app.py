@@ -203,8 +203,8 @@ def coordenadas_usuario(user):
     query = f"{user['endereco']} {user['cep']}".strip()
     coordenadas = geocodificar(query)
     if coordenadas:
-        with conectar() as db:
-            db.execute("UPDATE usuarios SET latitude = ?, longitude = ? WHERE id = ?", (coordenadas[0], coordenadas[1], user["id"]))
+        if coordenadas:
+         query_db("UPDATE usuarios SET latitude = ?, longitude = ? WHERE id = ?", (coordenadas[0], coordenadas[1], user["id"]), commit=True)
         time.sleep(0.4)
     return coordenadas
 
